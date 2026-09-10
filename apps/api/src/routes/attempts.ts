@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db.js';
 import { 
   draftDesignSchema, 
   structuredDesignSchema, 
@@ -15,7 +15,6 @@ import { ResilienceEngine } from '../services/resilienceEngine.js';
 import { evaluationRateLimiter } from '../middleware/security.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Helper to calculate design completeness score (0-100)
 function calculateCompleteness(design: StructuredDesign): number {

@@ -1,9 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db.js';
 import { DashboardStats, EvaluationDimension, DimensionScore } from '@designforge/shared';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {

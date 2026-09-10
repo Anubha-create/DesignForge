@@ -31,7 +31,7 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(authContextMiddleware);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get(['/api/health', '/health'], (req, res) => {
   res.json({
     status: 'HEALTHY',
     service: 'DesignForge API',
@@ -41,10 +41,31 @@ app.get('/api/health', (req, res) => {
 });
 
 // Mount modular routes
-app.use('/api/problems', problemsRouter);
-app.use('/api/attempts', attemptsRouter);
-app.use('/api/dashboard', dashboardRouter);
-app.use('/api/security', securityRouter);
+app.use(['/api/problems', '/problems'], problemsRouter);
+app.use(['/api/attempts', '/attempts'], attemptsRouter);
+app.use(['/api/dashboard', '/dashboard'], dashboardRouter);
+app.use(['/api/security', '/security'], securityRouter);
+
+// Serve static frontend in production if built
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const webDistPath = path.resolve(__dirname, '../../web/dist');
+
+if (fs.existsSync(webDistPath)) {
+  app.use(express.static(webDistPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    res.sendFile(path.join(webDistPath, 'index.html'), (err) => {
+      if (err) next();
+    });
+  });
+}
 
 // Centralized sanitized error handler
 app.use(errorHandler);

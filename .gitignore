@@ -25,6 +25,7 @@ build/
 *.sqlite3
 prisma/*.db
 prisma/*.db-journal
+!apps/api/prisma/dev.db
 
 # Logs
 logs
