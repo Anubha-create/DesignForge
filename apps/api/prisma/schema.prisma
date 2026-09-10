@@ -1,0 +1,151 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id             String          @id @default(cuid())
+  username       String          @unique
+  email          String          @unique
+  role           String          @default("LEARNER")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  attempts       Attempt[]
+  securityEvents SecurityEvent[]
+}
+
+model Problem {
+  id                     String    @id @default(cuid())
+  title                  String
+  slug                   String    @unique
+  difficulty             String    // EASY, MEDIUM, HARD
+  estimatedTime          String    // e.g. "25 MIN"
+  summary                String
+  problemStatement       String
+  functionalRequirements String    // JSON array
+  designExpectations     String    // JSON array
+  constraints            String    // JSON array
+  edgeCases              String    // JSON array
+  clarifyingQuestions    String    // JSON array
+  suggestedConcepts      String    // JSON array
+  hiddenRubricNotes      String    // JSON array
+  requirementChange      String    // JSON object: { id, title, scenario, newRequirement, architecturalImpactHint, edgeCases }
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  attempts               Attempt[]
+}
+
+model Attempt {
+  id                String             @id @default(cuid())
+  userId            String
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problemId         String
+  problem           Problem            @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  attemptNumber     Int
+  status            String             @default("DRAFT") // DRAFT, SUBMITTED, EVALUATING, COMPLETED, FAILED
+  failureReason     String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  submission        Submission?
+  evaluation        Evaluation?
+  snapshot          DesignSnapshot?
+  changeTestResults ChangeTestResult[]
+
+  @@unique([userId, problemId, attemptNumber])
+  @@index([problemId])
+  @@index([userId])
+}
+
+model Submission {
+  id                String   @id @default(cuid())
+  attemptId         String   @unique
+  attempt           Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  assumptions       String   // JSON array
+  classes           String   // JSON array of ClassDefinition
+  interfaces        String   // JSON array of InterfaceDefinition
+  relationships     String   // JSON array of RelationshipDefinition
+  patterns          String   // JSON array of PatternChoice
+  tradeoffs         String   // JSON array
+  edgeCases         String   // JSON array
+  completenessScore Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Evaluation {
+  id                  String                     @id @default(cuid())
+  attemptId           String                     @unique
+  attempt             Attempt                    @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  overallScore        Float
+  rating              String                     // CRITICAL, NEEDS ATTENTION, GOOD, STRONG
+  seniorReviewSummary String
+  topRecommendations  String                     // JSON array
+  dimensionScores     String                     // JSON array of { dimension, score, maxScore }
+  evaluatorType       String                     @default("DEMO") // DEMO, AI, DETERMINISTIC
+  evaluatedAt         DateTime                   @default(now())
+  criterionResults    EvaluationCriterionResult[]
+}
+
+model EvaluationCriterionResult {
+  id           String     @id @default(cuid())
+  evaluationId String
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  dimension    String
+  score        Float
+  status       String     // CRITICAL, NEEDS ATTENTION, GOOD, STRONG
+  evidence     String
+  concern      String
+  suggestion   String
+  confidence   String     // LOW, MEDIUM, HIGH
+
+  @@index([evaluationId])
+}
+
+model DesignSnapshot {
+  id                String   @id @default(cuid())
+  attemptId         String   @unique
+  attempt           Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  serializedDesign  String   // Complete JSON representation
+  classCount        Int
+  interfaceCount    Int
+  relationshipCount Int
+  createdAt         DateTime @default(now())
+}
+
+model ChangeTestResult {
+  id                       String   @id @default(cuid())
+  attemptId                String
+  attempt                  Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  resilienceScore          Float
+  rating                   String
+  affectedClassesCount     Int
+  affectedInterfacesCount  Int
+  newAbstractionsCount     Int
+  couplingImpact           String
+  extensibilityRating      String
+  modificationVsExtension  String
+  regressionRisk           String
+  evidence                 String   // JSON array
+  verdictSummary           String
+  recommendations          String   // JSON array
+  createdAt                DateTime @default(now())
+
+  @@index([attemptId])
+}
+
+model SecurityEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  type      String
+  status    String
+  ip        String?
+  details   String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
