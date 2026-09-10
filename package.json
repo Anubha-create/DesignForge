@@ -12,7 +12,8 @@
     "dev": "concurrently -n \"api,web\" -c \"cyan,magenta\" \"npm run dev --workspace=@designforge/api\" \"npm run dev --workspace=@designforge/web\"",
     "dev:api": "npm run dev --workspace=@designforge/api",
     "dev:web": "npm run dev --workspace=@designforge/web",
-    "build": "npm run build --workspace=@designforge/shared && npm run build --workspace=@designforge/api && npm run build --workspace=@designforge/web",
+    "bundle:api": "esbuild scripts/serverless-entry.ts --bundle --platform=node --format=esm \"--banner:js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" --external:@prisma/client --outfile=api/index.js",
+    "build": "npm run build --workspace=@designforge/shared && npm run build --workspace=@designforge/api && npm run build --workspace=@designforge/web && npm run bundle:api",
     "test": "npm run test --workspace=@designforge/api",
     "test:security": "npm run test:security --workspace=@designforge/api",
     "db:push": "npm run db:push --workspace=@designforge/api",
@@ -32,6 +33,7 @@
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
+    "esbuild": "^0.25.0",
     "prisma": "^6.4.1",
     "typescript": "^5.7.3"
   }
