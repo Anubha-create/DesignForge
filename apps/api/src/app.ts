@@ -49,11 +49,8 @@ app.use(['/api/security', '/security'], securityRouter);
 // Serve static frontend in production if built
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const webDistPath = path.resolve(__dirname, '../../web/dist');
+const webDistPath = path.resolve(process.cwd(), 'apps/web/dist');
 
 if (fs.existsSync(webDistPath)) {
   app.use(express.static(webDistPath));

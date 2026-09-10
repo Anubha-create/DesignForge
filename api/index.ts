@@ -1,4 +1,4 @@
-import app from '../apps/api/src/app.js';
+import app from '../apps/api/dist/app.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -28,4 +28,6 @@ if (process.env.VERCEL) {
   process.env.DATABASE_URL = 'file:/tmp/dev.db';
 }
 
-export default app;
+export default function handler(req: any, res: any) {
+  return app(req, res);
+}
