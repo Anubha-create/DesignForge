@@ -29,5 +29,15 @@ if (process.env.VERCEL) {
 }
 
 export default function handler(req: any, res: any) {
-  return app(req, res);
+  try {
+    return app(req, res);
+  } catch (err: any) {
+    console.error('Unhandled serverless error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: 'SERVERLESS_INTERNAL_ERROR',
+        message: err?.message || String(err),
+      });
+    }
+  }
 }

@@ -37638,38 +37638,65 @@ var import_express = __toESM(require_express2(), 1);
 import { PrismaClient } from "@prisma/client";
 import fs from "fs";
 import path from "path";
-var databaseUrl = process.env.DATABASE_URL;
-if (process.env.VERCEL) {
-  const tmpDb = "/tmp/dev.db";
-  if (!fs.existsSync(tmpDb)) {
-    const candidates = [
-      path.join(process.cwd(), "apps", "api", "prisma", "dev.db"),
-      path.join(process.cwd(), "prisma", "dev.db"),
-      path.join(process.cwd(), "dev.db")
-    ];
-    for (const cand of candidates) {
-      if (fs.existsSync(cand)) {
-        try {
-          fs.copyFileSync(cand, tmpDb);
-          break;
-        } catch (err) {
-          console.warn(`Failed to copy seed db from ${cand} to /tmp:`, err);
+var prismaInstance = null;
+function getPrisma() {
+  if (prismaInstance) {
+    return prismaInstance;
+  }
+  let databaseUrl = process.env.DATABASE_URL;
+  if (process.env.VERCEL) {
+    const tmpDb = "/tmp/dev.db";
+    if (!fs.existsSync(tmpDb)) {
+      const candidatePaths = [
+        path.join(process.cwd(), "apps", "api", "prisma", "dev.db"),
+        path.join(process.cwd(), "prisma", "dev.db"),
+        path.resolve("apps/api/prisma/dev.db"),
+        "/var/task/apps/api/prisma/dev.db",
+        "/var/task/prisma/dev.db",
+        path.join(process.cwd(), "dev.db")
+      ];
+      for (const cand of candidatePaths) {
+        if (fs.existsSync(cand)) {
+          try {
+            fs.copyFileSync(cand, tmpDb);
+            console.log(`Successfully copied seed db from ${cand} to /tmp/dev.db`);
+            break;
+          } catch (err) {
+            console.warn(`Failed to copy seed db from ${cand} to /tmp:`, err);
+          }
         }
       }
     }
-  }
-  databaseUrl = "file:/tmp/dev.db";
-  process.env.DATABASE_URL = databaseUrl;
-}
-var prisma = new PrismaClient(
-  databaseUrl ? {
-    datasources: {
-      db: {
-        url: databaseUrl
-      }
+    if (fs.existsSync(tmpDb)) {
+      databaseUrl = "file:/tmp/dev.db";
+    } else {
+      databaseUrl = process.env.DATABASE_URL || "file:./dev.db";
     }
-  } : void 0
-);
+    process.env.DATABASE_URL = databaseUrl;
+  }
+  try {
+    prismaInstance = new PrismaClient(
+      databaseUrl ? {
+        datasources: {
+          db: {
+            url: databaseUrl
+          }
+        }
+      } : void 0
+    );
+  } catch (err) {
+    console.error("Error instantiating PrismaClient:", err);
+    throw err;
+  }
+  return prismaInstance;
+}
+var prisma = new Proxy({}, {
+  get(target, prop, receiver) {
+    const client = getPrisma();
+    const val = Reflect.get(client, prop, receiver);
+    return typeof val === "function" ? val.bind(client) : val;
+  }
+});
 
 // apps/api/src/routes/problems.ts
 var router = (0, import_express.Router)();
@@ -45734,7 +45761,17 @@ if (process.env.VERCEL) {
   process.env.DATABASE_URL = "file:/tmp/dev.db";
 }
 function handler(req, res) {
-  return app_default(req, res);
+  try {
+    return app_default(req, res);
+  } catch (err) {
+    console.error("Unhandled serverless error:", err);
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: "SERVERLESS_INTERNAL_ERROR",
+        message: err?.message || String(err)
+      });
+    }
+  }
 }
 export {
   handler as default
