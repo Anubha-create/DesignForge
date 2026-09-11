@@ -95,15 +95,40 @@ describe('Security & API Defense Tests', () => {
   });
 
   it('Break My Design: validates change-test input schema', async () => {
-    const res = await request(app)
-      .post('/api/attempts/att-parking-1/change-test')
-      .send({
-        affectedClasses: [],
-        requiredChanges: [], // invalid: requires at least 1 change
-        reasoning: 'too short' // invalid: requires min 10 chars
-      });
+    const prob = await prisma.problem.findFirst();
+    const testAttempt = await prisma.attempt.create({
+      data: {
+        userId: 'demo-user-1',
+        problemId: prob!.id,
+        attemptNumber: 999,
+        status: 'DRAFT',
+        submission: {
+          create: {
+            assumptions: '[]',
+            classes: '[]',
+            interfaces: '[]',
+            relationships: '[]',
+            patterns: '[]',
+            tradeoffs: '[]',
+            edgeCases: '[]'
+          }
+        }
+      }
+    });
 
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBeDefined();
+    try {
+      const res = await request(app)
+        .post(`/api/attempts/${testAttempt.id}/change-test`)
+        .send({
+          affectedClasses: [],
+          requiredChanges: [], // invalid: requires at least 1 change
+          reasoning: 'too short' // invalid: requires min 10 chars
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBeDefined();
+    } finally {
+      await prisma.attempt.delete({ where: { id: testAttempt.id } });
+    }
   });
 });

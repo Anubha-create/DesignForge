@@ -13,7 +13,12 @@ import attemptsRouter from './routes/attempts.js';
 import dashboardRouter from './routes/dashboard.js';
 import securityRouter from './routes/security.js';
 
+import path from 'path';
+
 dotenv.config();
+if (!process.env.PORT) {
+  dotenv.config({ path: path.resolve(process.cwd(), 'apps/api/.env') });
+}
 
 const app = express();
 
@@ -47,7 +52,6 @@ app.use(['/api/dashboard', '/dashboard'], dashboardRouter);
 app.use(['/api/security', '/security'], securityRouter);
 
 // Serve static frontend in production if built
-import path from 'path';
 import fs from 'fs';
 
 const webDistPath = path.resolve(process.cwd(), 'apps/web/dist');

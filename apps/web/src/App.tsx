@@ -12,15 +12,19 @@ import { AttemptDetail, Problem } from '@designforge/shared';
 
 export default function App() {
   const { theme, setTheme } = useTheme();
-  const [currentTab, setCurrentTab] = useState<string>('dashboard');
-  const [activeAttemptId, setActiveAttemptId] = useState<string | null>('att-parking-3'); // Pre-select Parking Lot Attempt 3 for instant 30-second recruiter showcase
+  const [currentTab, setCurrentTab] = useState<string>('problems');
+  const [activeAttemptId, setActiveAttemptId] = useState<string | null>(null);
   const [activeAttempt, setActiveAttempt] = useState<AttemptDetail | null>(null);
   const [activeProblem, setActiveProblem] = useState<Problem | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
   // Load active attempt detail when attemptId changes
   useEffect(() => {
-    if (!activeAttemptId) return;
+    if (!activeAttemptId) {
+      setActiveAttempt(null);
+      setActiveProblem(null);
+      return;
+    }
 
     api.getAttempt(activeAttemptId)
       .then(res => {
@@ -35,13 +39,13 @@ export default function App() {
   const handleSelectProblem = async (problemId: string, slug: string) => {
     try {
       setLoading(true);
-      // Create new attempt for problem or retrieve existing
-      const res = await api.createAttempt(problemId, true);
+      // Create new clean attempt with 0 pre-filled classes so candidate designs from scratch
+      const res = await api.createAttempt(problemId, false);
       setActiveAttemptId(res.attempt.id);
       setCurrentTab('workspace');
     } catch (err: any) {
       console.error('Error starting attempt:', err);
-      // Fallback: if problem already has attempt, find it
+      // Fallback: if problem fetch needed
       const probRes = await api.getProblem(problemId);
       setActiveProblem(probRes.problem);
       setCurrentTab('workspace');
@@ -128,12 +132,16 @@ export default function App() {
               <ProblemsView onSelectProblem={handleSelectProblem} />
             )}
 
-            {currentTab === 'workspace' && activeAttemptId && (
-              <WorkspaceView
-                attemptId={activeAttemptId}
-                onEvaluationComplete={handleEvaluationComplete}
-                onCancel={() => setCurrentTab('dashboard')}
-              />
+            {currentTab === 'workspace' && (
+              activeAttemptId ? (
+                <WorkspaceView
+                  attemptId={activeAttemptId}
+                  onEvaluationComplete={handleEvaluationComplete}
+                  onCancel={() => setCurrentTab('problems')}
+                />
+              ) : (
+                <ProblemsView onSelectProblem={handleSelectProblem} />
+              )
             )}
 
             {currentTab === 'evaluation' && activeAttempt && activeProblem && (

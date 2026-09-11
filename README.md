@@ -98,8 +98,8 @@ DesignForge is built as a **Modular Monolith** optimized for developer experienc
 
 ### Step 1: Clone and Install Dependencies
 ```bash
-git clone https://github.com/example/designforge.git
-cd designforge
+git clone https://github.com/Anubha-create/DesignForge.git
+cd DesignForge
 npm install
 ```
 

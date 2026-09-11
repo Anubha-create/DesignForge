@@ -2,77 +2,52 @@ import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 
-let prismaInstance: PrismaClient | null = null;
+// Handle serverless writable SQLite database on Vercel / AWS Lambda or local fallback
+let databaseUrl = process.env.DATABASE_URL;
 
-export function getPrisma(): PrismaClient {
-  if (prismaInstance) {
-    return prismaInstance;
-  }
-
-  let databaseUrl = process.env.DATABASE_URL;
-
-  if (process.env.VERCEL) {
-    const tmpDb = '/tmp/dev.db';
-    if (!fs.existsSync(tmpDb)) {
-      const candidatePaths = [
-        path.join(process.cwd(), 'apps', 'api', 'prisma', 'dev.db'),
-        path.join(process.cwd(), 'prisma', 'dev.db'),
-        path.resolve('apps/api/prisma/dev.db'),
-        '/var/task/apps/api/prisma/dev.db',
-        '/var/task/prisma/dev.db',
-        path.join(process.cwd(), 'dev.db')
-      ];
-
-      for (const cand of candidatePaths) {
-        if (fs.existsSync(cand)) {
-          try {
-            fs.copyFileSync(cand, tmpDb);
-            console.log(`Successfully copied seed db from ${cand} to /tmp/dev.db`);
-            break;
-          } catch (err) {
-            console.warn(`Failed to copy seed db from ${cand} to /tmp:`, err);
-          }
+if (process.env.VERCEL) {
+  const tmpDb = '/tmp/dev.db';
+  if (!fs.existsSync(tmpDb)) {
+    // Search possible locations for the seeded SQLite database
+    const candidates = [
+      path.join(process.cwd(), 'apps', 'api', 'prisma', 'dev.db'),
+      path.join(process.cwd(), 'prisma', 'dev.db'),
+      path.join(process.cwd(), 'dev.db'),
+    ];
+    for (const cand of candidates) {
+      if (fs.existsSync(cand)) {
+        try {
+          fs.copyFileSync(cand, tmpDb);
+          break;
+        } catch (err) {
+          console.warn(`Failed to copy seed db from ${cand} to /tmp:`, err);
         }
       }
     }
-
-    if (fs.existsSync(tmpDb)) {
-      databaseUrl = 'file:/tmp/dev.db';
-    } else {
-      // Fallback to relative file path if /tmp copy was not possible
-      databaseUrl = process.env.DATABASE_URL || 'file:./dev.db';
-    }
-    process.env.DATABASE_URL = databaseUrl;
   }
+  databaseUrl = 'file:/tmp/dev.db';
+  process.env.DATABASE_URL = databaseUrl;
+} else if (!databaseUrl) {
+  // Local environment fallback: search candidates for dev.db or default to absolute path
+  const candidates = [
+    path.join(process.cwd(), 'apps', 'api', 'prisma', 'dev.db'),
+    path.join(process.cwd(), 'prisma', 'dev.db'),
+    path.join(process.cwd(), 'dev.db'),
+    path.resolve(process.cwd(), 'apps/api/prisma/dev.db')
+  ];
 
-  try {
-    prismaInstance = new PrismaClient(
-      databaseUrl
-        ? {
-            datasources: {
-              db: {
-                url: databaseUrl,
-              },
-            },
-          }
-        : undefined
-    );
-  } catch (err) {
-    console.error('Error instantiating PrismaClient:', err);
-    throw err;
-  }
-
-  return prismaInstance;
+  let foundDb = candidates.find(c => fs.existsSync(c)) || candidates[0];
+  const normalized = foundDb.replace(/\\/g, '/');
+  databaseUrl = `file:${normalized}`;
+  process.env.DATABASE_URL = databaseUrl;
 }
 
-// Transparent lazy Proxy so routes can continue using `prisma.problem.findMany(...)`
-// without executing `new PrismaClient()` during top-level module load.
-export const prisma = new Proxy({} as PrismaClient, {
-  get(target, prop, receiver) {
-    const client = getPrisma();
-    const val = Reflect.get(client, prop, receiver);
-    return typeof val === 'function' ? val.bind(client) : val;
-  }
+export const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: databaseUrl,
+    },
+  },
 });
 
 export default prisma;
